@@ -36,7 +36,7 @@ contract Inskribbl {
         require(block.timestamp >= currentGame.deadline, "The current game is still active");
 
         currentGame =
-            Game({wordHash: _wordHash, creator: msg.sender, pot: 0, deadline: block.timestamp + _duration, winner: address(0)});
+            Game({wordHash: _wordHash, creator: msg.sender, pot: address(this).balance, deadline: block.timestamp + _duration, winner: address(0)});
 
         emit GameCreated(msg.sender, _wordHash, 0, currentGame.deadline);
     }
