@@ -29,10 +29,6 @@ function App({ client, wallets }: { client: ThirdwebClient, wallets: any[] }) {
     setGuesses(guesses + 1)
   }
 
-  useEffect(() => {
-    if(guesses > 1) onOpen();
-  }, [guesses])
-
   const setPlayers = (player: string) => {
     setUsers([...users, { wallet: player, index, isDrawing: false }])
     setIndex(index + 1)
