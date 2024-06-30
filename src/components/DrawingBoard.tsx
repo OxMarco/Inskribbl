@@ -1,16 +1,16 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Box, Select, useBreakpointValue } from '@chakra-ui/react';
 import { Stage, Layer, Line, Text } from 'react-konva';
-import { useWaku } from "@waku/react";
-import { createEncoder, createDecoder } from "@waku/sdk";
-import protobuf from 'protobufjs';
+import { useActiveWallet } from 'thirdweb/react';
+import GamePeer, { GameState } from '../GamePeer';
 
 function DrawingBoard() {
+  const wallet = useActiveWallet();
   const canvasSize = useBreakpointValue({ base: 300, md: 400, lg: 600 }) || 600
 
   //////// Drawing ////////
   const [tool, setTool] = useState('pen');
-  const [lines, setLines] = useState([]);
+  const [lines, setLines] = useState<any[]>([]);
   const isDrawing = useRef(false);
 
   const handleMouseDown = (e: any) => {
@@ -40,21 +40,39 @@ function DrawingBoard() {
   };
 
   //////// P2P ////////
-  const { node, error, isLoading } = useWaku();
-  const contentTopic = "/waku-react-guide/1/chat/proto";
-  const encoder = createEncoder({ contentTopic });
-  const decoder = createDecoder(contentTopic);
+  const [gamePeer, setGamePeer] = useState<GamePeer | null>(null);
+  const [gameState, setGameState] = useState<GameState>({ currentDrawer: '', word: '', scores: {} });
+  const [guess, setGuess] = useState('');
 
-  // Create a message structure using Protobuf
-  const ChatMessage = new protobuf.Type("ChatMessage")
-    .add(new protobuf.Field("timestamp", 1, "uint64"))
-    .add(new protobuf.Field("message", 2, "string"));
+  useEffect(() => {
+    const account = wallet?.getAccount();
+    if(!account) return
 
-  // Send the message using Light Push
-  const sendMessage = async () => { }
+    const userId = `user_${account.address}`;
+    console.log(userId)
+    const peer = new GamePeer(userId, setGameState);
+    setGamePeer(peer);
 
-  const [messages, setMessages] = useState([])
+    // Join a room (in a real app, you'd get this from a lobby system)
+    peer.joinRoom('user_0x35d389B751943Cbf3fE3620a668566E97D5f0144');
 
+    // Listen for drawing updates from other peers
+    peer.onDrawingUpdate((newLines: any[]) => {
+      setLines(newLines);
+    });
+
+    return () => {
+      peer.disconnect();
+    };
+  }, [wallet]);
+
+  // Send drawing updates to other peers
+  useEffect(() => {
+    if (gamePeer && gameState.currentDrawer === gamePeer.getUserId()) {
+      gamePeer.sendDrawing(lines);
+    }
+  }, [lines, gamePeer, gameState.currentDrawer]);
+  
   return (
     <Box bg="white" borderRadius="md" boxShadow="md" p={4}>
       <Stage
